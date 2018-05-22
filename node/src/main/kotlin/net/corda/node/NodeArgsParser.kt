@@ -119,8 +119,8 @@ data class CmdLineOptions(val baseDirectory: Path,
         ).parseAsNodeConfiguration(unknownConfigKeysPolicy::handle)
         if (nodeRegistrationOption != null) {
             require(!config.devMode) { "registration cannot occur in devMode" }
-            requireNotNull(config.compatibilityZoneURL) {
-                "compatibilityZoneURL must be present in node configuration file in registration mode."
+            require(config.compatibilityZoneURL != null || config.networkServices != null) {
+                "compatibilityZoneURL or networkServices must be present in the node configuration file in registration mode."
             }
         }
         return config

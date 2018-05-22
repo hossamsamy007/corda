@@ -35,6 +35,7 @@ interface NodeConfiguration : NodeSSLConfiguration {
     val devMode: Boolean
     val devModeOptions: DevModeOptions?
     val compatibilityZoneURL: URL?
+    val networkServices: NetworkServicesConfig?
     val certificateChainCheckPolicies: List<CertChainPolicyConfig>
     val verifierType: VerifierType
     val p2pMessagingRetry: P2PMessagingRetryConfiguration
@@ -115,6 +116,17 @@ data class BFTSMaRtConfiguration(
 }
 
 /**
+ * Used as an alternative to the older compatibilityZoneURL to allows the doorman and network map
+ * services for a node to be configured a different URL's. Cannot be set at the same time as the
+ * compatibilityZoneURL, and will be defaulted (if not set) to both point at the configured
+ * compatibilityZoneURL.
+ */
+data class NetworkServicesConfig(
+        val doormanURL: URL,
+        val networkMapURL: URL
+)
+
+/**
  * Currently only used for notarisation requests.
  *
  * When the response doesn't arrive in time, the message is resent to a different notary-replica round-robin
@@ -139,6 +151,7 @@ data class NodeConfigurationImpl(
         override val crlCheckSoftFail: Boolean,
         override val dataSourceProperties: Properties,
         override val compatibilityZoneURL: URL? = null,
+        override var networkServices: NetworkServicesConfig? = null,
         override val tlsCertCrlDistPoint: URL? = null,
         override val tlsCertCrlIssuer: String? = null,
         override val rpcUsers: List<User>,
@@ -211,6 +224,7 @@ data class NodeConfigurationImpl(
         errors += validateDevModeOptions()
         errors += validateRpcOptions(rpcOptions)
         errors += validateTlsCertCrlConfig()
+        errors += validateNetworkServices()
         return errors
     }
 
@@ -230,7 +244,20 @@ data class NodeConfigurationImpl(
             compatibilityZoneURL?.let {
                 errors += "'compatibilityZoneURL': present. Property cannot be set when 'devMode' is true."
             }
+            networkServices?.let {
+                errors += "'networkServices': present. Property cannot be set when 'devMode' is true."
+            }
         }
+        return errors
+    }
+
+    private fun validateNetworkServices(): List<String> {
+        val errors = mutableListOf<String>()
+
+        if (compatibilityZoneURL != null && networkServices != null) {
+            errors += "Cannot configure both compatibilityZoneUrl and networkServices simultaneously"
+        }
+
         return errors
     }
 
@@ -251,6 +278,10 @@ data class NodeConfigurationImpl(
             logger.warn("""You are configuring certificateChainCheckPolicies. This is a setting that is not used, and will be removed in a future version.
                 |Please contact the R3 team on the public slack to discuss your use case.
             """.trimMargin())
+        }
+
+        if (compatibilityZoneURL != null && networkServices == null) {
+            networkServices = NetworkServicesConfig(compatibilityZoneURL, compatibilityZoneURL)
         }
     }
 }

@@ -201,7 +201,7 @@ open class NodeStartup(val args: Array<String>) {
     }
 
     protected open fun registerWithNetwork(conf: NodeConfiguration, nodeRegistrationConfig: NodeRegistrationOption) {
-        val compatibilityZoneURL = conf.compatibilityZoneURL!!
+        val compatibilityZoneURL = conf.networkServices!!.doormanURL
         println()
         println("******************************************************************")
         println("*                                                                *")

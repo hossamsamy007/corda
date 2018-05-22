@@ -2,21 +2,20 @@ package net.corda.node.services.config
 
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import net.corda.core.internal.div
 import net.corda.core.internal.toPath
 import net.corda.core.utilities.NetworkHostAndPort
 import net.corda.core.utilities.seconds
-import net.corda.nodeapi.BrokerRpcSslOptions
 import net.corda.testing.core.ALICE_NAME
 import net.corda.testing.node.MockServices.Companion.makeTestDataSourceProperties
 import net.corda.tools.shell.SSHDConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.net.URI
 import java.net.URL
 import java.nio.file.Paths
-import java.util.*
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -131,6 +130,45 @@ class NodeConfigurationImplTest {
         val errors = configuration.validate()
 
         assertThat(errors).hasOnlyOneElementSatisfying { error -> error.contains("compatibilityZoneURL") && error.contains("devMode") }
+    }
+
+    @Test
+    fun `validation has error when compatibilityZone is present and devMode is true`() {
+        val configuration = testConfiguration.copy(devMode = true, networkServices = NetworkServicesConfig(
+                URI.create("https://r3.com.doorman").toURL(),
+                URI.create("https://r3.com/nm").toURL()))
+
+        val errors = configuration.validate()
+
+        assertThat(errors).hasOnlyOneElementSatisfying { error -> error.contains("networkServices") && error.contains("devMode") }
+    }
+
+    @Test
+    fun `validation has error when both compatibilityZoneURL and networkServices are configured`() {
+        val configuration = testConfiguration.copy(
+                devMode = false,
+                compatibilityZoneURL = URI.create("https://r3.com").toURL(),
+                networkServices = NetworkServicesConfig(
+                        URI.create("https://r3.com.doorman").toURL(),
+                        URI.create("https://r3.com/nm").toURL()))
+
+        val errors = configuration.validate()
+
+        assertThat(errors).hasOnlyOneElementSatisfying {
+            error -> error.contains("Cannot configure both compatibilityZoneUrl and networkServices simultaneously")
+        }
+    }
+
+    @Test
+    fun `compatiilityZoneURL populates NetworkServices`() {
+        val compatibilityZoneURL = URI.create("https://r3.com").toURL()
+        val configuration = testConfiguration.copy(
+                devMode = false,
+                compatibilityZoneURL = compatibilityZoneURL)
+
+        assertNotNull(configuration.networkServices)
+        assertEquals(compatibilityZoneURL, configuration.networkServices!!.doormanURL)
+        assertEquals(compatibilityZoneURL, configuration.networkServices!!.networkMapURL)
     }
 
     private fun configDebugOptions(devMode: Boolean, devModeOptions: DevModeOptions?): NodeConfiguration {
